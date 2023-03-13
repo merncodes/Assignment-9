@@ -1,0 +1,99 @@
+---
+title: "Assignment 9"
+author: "Marin H"
+date: "2023-03-13"
+output: html_document
+---
+
+https://github.com/merncodes/Assignment-9.git 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Set-up
+```{r, message=F}
+library(doParallel)
+library(parallel)
+library(foreach)
+```
+
+### Determine the number of cores 
+```{r}
+CoreNum <- detectCores()
+paste("I have", CoreNum, "cores in my system")
+```
+
+## Part 1: Create a standard loop
+
+### Run the for loop
+```{r}
+AllMeans <- NA   # create an empty object
+StartTimer <- Sys.time() # start timer
+for(i in 1:4000) { # iterate 4000 times
+  AllMeans[i] <- mean(rnorm(100000, 10, 3)) # for each iteration, find the mean of a normal distribution, save mean for to AllMeans object
+}
+EndTimer <- Sys.time() # end timer 
+```
+
+### Computation time of standard for loop
+```{r}
+StandardTime <- EndTimer - StartTimer
+print(StandardTime)
+```
+
+### Prediction of parallel loop run time
+```{r}
+EstimatedTime <- StandardTime/CoreNum # standard for loop divided by number of cores
+print(EstimatedTime)
+```
+
+I have eight cores, therefore I predict that the parallel for loop will take an eighth of the time required to execute. Specifically, I predict it will take a minimum of 1.439 seconds to run. 
+
+## Part 2: Create a for loop in parallel
+
+### Activate multi-threading
+```{r}
+Cores <- parallel::makeCluster(detectCores()) # detect cores
+doParallel::registerDoParallel(Cores) # activate parallel processing
+```
+
+### Run loop in parallel
+```{r, results = 'hide'}
+AllMeansParallel <- NA # create empty object
+StartTimerParallel <- Sys.time() # start timer
+foreach(i=1:4000, .combine=rbind) %dopar% { # indicate use of parallel loop, combine results
+  AllMeansParallel[i] <- mean(rnorm(100000, 10, 3)) # for each iteration, assign normal distribution mean to AllMeansParallel object
+}
+EndTimerParallel <- Sys.time() # end timer
+```
+### Computation time of parallel for loop 
+```{r}
+ParallelTime <- EndTimerParallel - StartTimerParallel
+print(ParallelTime)
+```
+
+### De-activate multi-threading 
+```{r}
+parallel::stopCluster(Cores) 
+```
+
+## Part 3. Interpretation of results 
+```{r}
+paste("Standard for loop:", StandardTime, "seconds")
+paste("Theoretical parallel for loop:", EstimatedTime, "seconds")
+paste("Parallel for loop:", ParallelTime, "seconds")
+```
+
+The theoretical parallel for loop run-time (**1.4 seconds**) was shorter than the actual parallel for loop run-time (**2.2 seconds**); however, the serial for loop had the longest run-time of the all three loops (**11.3 seconds**). 
+
+The theoretical parallel loop time is shorter than the actual parallel loop time due to the extra coordination required to run the loops in parallel. The distribution of for loops among cores is not necessarily equal, as result some cores may finish executing their tasks before the others and be forced to wait... you are only as strong as your weakest link (1). In addition, parallelism is only possible if there is some degree of communication/coordination between cores as they execute their functions (e.g., ensure the correct number of iterations are completed), which takes computational time. As a result, it makes sense that the actual parallel loop run-time is slightly higher than the theoretical run-time, rather than being equal (2). 
+
+Furthermore, it makes sense that the serial for loop was slower than both parallel for loops. The serial for loop only uses one core to execute instructions, while the parallel for loops uses eight, in this case. By only using one core, serial for loops must execute each loop one at a time. By using multiple cores, for loops are executed across the cores simultaneously (the total number of for loop iterations is the same, but each core has fewer for loops to execute as the workload is distributed). Ultimately, this reduces the computation time of parallel loops compared to serial loops. 
+
+*References*
+
+1. https://learn.microsoft.com/en-us/cpp/parallel/concrt/parallel-algorithms?view=msvc-170 
+2. https://tmieno2.github.io/R-as-GIS-for-Economists/par-comp.html 
+
+
